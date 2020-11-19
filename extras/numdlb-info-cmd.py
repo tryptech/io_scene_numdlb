@@ -112,15 +112,6 @@ PolyGrp_array = []
 WeightGrp_array = []
 print_debug_info = True
 
-def findUVImage(matNameQuery, useUVMap2):
-    for mat in Materials_array:
-        if (mat.materialName == matNameQuery):
-            if useUVMap2:
-                return mat.color2Name
-            else:
-                return mat.color1Name
-    return ""
-
 def readVarLenString(file):
     nameBuffer = []
     while('\x00' not in nameBuffer):
@@ -485,7 +476,7 @@ def importMeshes(MSHName):
                         ColorCount += 1
 
                     else:
-                        raise RuntimeError("Unknown format!")
+                        print("Unknown format!")
                     f.seek(BuffParamRet, 0)
                 # Read vertice data
                 print("Total number of vertices found: " + str(PolyGrp_array[p].verticeCount))
@@ -545,15 +536,6 @@ def importMeshes(MSHName):
 
                 if print_debug_info:
                     print(PolyGrp_array[p].visGroupName + " UV end: " + str(f.tell()))
-                # Search for duplicate UV coordinates and make them unique so that Blender will not remove them
-                if (len(UV_array) > 0):
-                    for uvmap in UV_array.values():
-                        for uvcoorda in range(0, len(uvmap) - 1):
-                            count = uvcoorda
-                            for uvcoordb in range(count + 1, len(uvmap)):
-                                if (uvmap[uvcoordb] == uvmap[uvcoorda]):
-                                    uvmap[uvcoordb][0] += 0.000000000000001
-                                    uvmap[uvcoordb][1] += 0.000000000000001
 
                 # Read face data
                 f.seek(FaceBuffOffset + PolyGrp_array[p].facepointStart, 0)
@@ -572,7 +554,7 @@ def importMeshes(MSHName):
                         fc = struct.unpack('<L', f.read(4))[0] + 1
                         Face_array.append([fa,fb,fc])
                     else:
-                        raise RuntimeError("Unknown face bit value!")
+                        print("Unknown face bit value, skipping this face")
 
                 if print_debug_info:
                     print(PolyGrp_array[p].visGroupName + " Face end: " + str(f.tell()))
