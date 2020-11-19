@@ -85,7 +85,7 @@ def readVarLenString(file):
     del nameBuffer[-1]
     return ''.join(nameBuffer)
 
-def getModelInfo(context, filepath, texture_ext, use_vertex_colors, use_uv_maps, allow_black, use_emissive_maps, use_prm_maps, use_normal_maps, create_rest_action, auto_rotate):
+def getModelInfo(context, filepath, texture_ext, use_vertex_colors, use_uv_maps, uv_checks, allow_black, use_emissive_maps, use_prm_maps, use_normal_maps, create_rest_action, bones_in_front, auto_rotate):
     # Semi-global variables used by this function's hierarchy; cleared every time this function runs
     global dirPath; dirPath = ""
     global MODLName; MODLName = ""
@@ -146,16 +146,24 @@ def getModelInfo(context, filepath, texture_ext, use_vertex_colors, use_uv_maps,
         if os.path.isfile(MATName):
             importMaterials(MATName, use_emissive_maps, use_prm_maps, use_normal_maps, texture_ext)
         if os.path.isfile(SKTName):
-            importSkeleton(context, SKTName, create_rest_action)
+            importSkeleton(context, SKTName, create_rest_action, bones_in_front)
         if os.path.isfile(MSHName):
-            importMeshes(context, MSHName, texture_ext, use_vertex_colors, use_uv_maps, allow_black)
+            importMeshes(context, MSHName, use_vertex_colors, use_uv_maps, uv_checks, allow_black)
 
         # Rotate armature if option is enabled
         if auto_rotate:
             bpy.ops.object.select_all(action='DESELECT')
-            bpy.ops.object.select_pattern(pattern=armaName)
+
+            # Rotate the armature and everything parented to it, only if it exists
+            try:
+                bpy.data.objects[armaName].select_set(True)
+            # Otherwise select all objects defined in the model definition file
+            except:
+                for objName in MODLGrp_array.keys():
+                    bpy.data.objects[objName].select_set(True)
+
             bpy.ops.transform.rotate(value=math.radians(90), orient_axis='X', constraint_axis=(True, False, False), orient_type='GLOBAL', mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1)
-            bpy.ops.object.select_all(action='TOGGLE')
+            bpy.ops.object.select_all(action='DESELECT')
 
 # Imports the materials
 def importMaterials(MATName, use_emissive_maps, use_prm_maps, use_normal_maps, texture_ext):
@@ -271,7 +279,7 @@ def importMaterials(MATName, use_emissive_maps, use_prm_maps, use_normal_maps, t
                     # R - Normal X+
                     # G - Normal Y+
                     # B - Blend Map (unused)
-                    # A - Cavity Map (unused)                 
+                    # A - Cavity Map (unused)
                     if (use_normal_maps and Materials_array[m].normalName != ""):
                         nor_fname_1 = image_utils.load_image(Materials_array[m].normalName + texture_ext, dirPath, place_holder=True, check_existing=True, force_reload=True)
                         nor_fname_1.colorspace_settings.name = 'Non-Color'
@@ -279,19 +287,19 @@ def importMaterials(MATName, use_emissive_maps, use_prm_maps, use_normal_maps, t
                         nor_tex_node = nodes.new(type="ShaderNodeTexImage")
                         nor_tex_node.image = nor_fname_1
                         links.new(uvmap_node.outputs[0], nor_tex_node.inputs["Vector"])
-                        
+
                         nor_in_node = nodes.new(type="ShaderNodeSeparateRGB")
                         links.new(nor_tex_node.outputs["Color"], nor_in_node.inputs["Image"])
-                        
+
                         nor_out_node = nodes.new(type="ShaderNodeCombineRGB")
                         links.new(nor_in_node.outputs["R"], nor_out_node.inputs["R"])
                         links.new(nor_in_node.outputs["G"], nor_out_node.inputs["G"])
                         nor_out_node.inputs["B"].default_value = 1.0
-                        
+
                         nor_node = nodes.new(type="ShaderNodeNormalMap")
                         links.new(nor_out_node.outputs["Image"], nor_node.inputs["Color"])
                         nor_node.uv_map = "UVMap"
-                        
+
                         links.new(nor_node.outputs["Normal"], principled_node.inputs["Normal"])
 
                     # emi_fname_1 is the emissive map.
@@ -362,7 +370,7 @@ def importMaterials(MATName, use_emissive_maps, use_prm_maps, use_normal_maps, t
         print(Materials_array)
 
 # Imports the skeleton
-def importSkeleton(context, SKTName, create_rest_action):
+def importSkeleton(context, SKTName, create_rest_action, bones_in_front):
     BoneCount = 0
     BoneParent_array = []
     BoneName_array = []
@@ -404,129 +412,134 @@ def importSkeleton(context, SKTName, create_rest_action):
             print(BoneName_array)
 
             b.seek(BoneMatrOffset, 0)
-            # Before adding the bones, create a new armature and select it
-            global skelName
-            skelName = MODLName + "-armature"
-            skel = bpy.data.objects.new(skelName, bpy.data.armatures.new(skelName))
-            global armaName # Used in case another armature of the same name exists
-            armaName = skel.data.name
-            skel.rotation_mode = 'QUATERNION'
-            skel.data.display_type = 'STICK'
-            skel.show_in_front = True
 
-            context.view_layer.active_layer_collection.collection.objects.link(skel)
-            for i in bpy.context.selected_objects:
-                i.select_set(False)
-            skel.select_set(True)
-            context.view_layer.objects.active = skel
-            bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+            if BoneCount > 0:
+                # Before adding the bones, create a new armature and select it
+                skelName = MODLName + "-armature"
+                skel = bpy.data.objects.new(skelName, bpy.data.armatures.new(skelName))
+                global armaName # Used in case another armature of the same name exists
+                armaName = skel.data.name
+                skel.rotation_mode = 'QUATERNION'
+                skel.data.display_type = 'STICK'
 
-            for c in range(BoneCount):
-                # Matrix format is [X, Y, Z, W]
-                m11 = struct.unpack('<f', b.read(4))[0]; m12 = struct.unpack('<f', b.read(4))[0]; m13 = struct.unpack('<f', b.read(4))[0]; m14 = struct.unpack('<f', b.read(4))[0]
-                m21 = struct.unpack('<f', b.read(4))[0]; m22 = struct.unpack('<f', b.read(4))[0]; m23 = struct.unpack('<f', b.read(4))[0]; m24 = struct.unpack('<f', b.read(4))[0]
-                m31 = struct.unpack('<f', b.read(4))[0]; m32 = struct.unpack('<f', b.read(4))[0]; m33 = struct.unpack('<f', b.read(4))[0]; m34 = struct.unpack('<f', b.read(4))[0]
-                m41 = struct.unpack('<f', b.read(4))[0]; m42 = struct.unpack('<f', b.read(4))[0]; m43 = struct.unpack('<f', b.read(4))[0]; m44 = struct.unpack('<f', b.read(4))[0]
+                if bones_in_front:
+                    skel.show_in_front = True
 
-                mr0 = [m11, m21, m31, m41]
-                mr1 = [m12, m22, m32, m42]
-                mr2 = [m13, m23, m33, m43]
-                mr3 = [m14, m24, m34, m44]
-                tfm = mathutils.Matrix([mr0, mr1, mr2, mr3])
-                BoneTrsArray[BoneName_array[c]] = tfm
-                # print("Matrix for " + BoneName_array[c] + ":\n" + str(tfm))
-                # print(tfm.decompose())
+                context.view_layer.active_layer_collection.collection.objects.link(skel)
+                for i in bpy.context.selected_objects:
+                    i.select_set(False)
+                skel.select_set(True)
+                context.view_layer.objects.active = skel
+                bpy.ops.object.mode_set(mode='EDIT', toggle=False)
 
-                newBone = skel.data.edit_bones.new(BoneName_array[c])
-                newBone.transform(tfm, scale=True, roll=False)
+                for c in range(BoneCount):
+                    # Matrix format is [X, Y, Z, W]
+                    m11 = struct.unpack('<f', b.read(4))[0]; m12 = struct.unpack('<f', b.read(4))[0]; m13 = struct.unpack('<f', b.read(4))[0]; m14 = struct.unpack('<f', b.read(4))[0]
+                    m21 = struct.unpack('<f', b.read(4))[0]; m22 = struct.unpack('<f', b.read(4))[0]; m23 = struct.unpack('<f', b.read(4))[0]; m24 = struct.unpack('<f', b.read(4))[0]
+                    m31 = struct.unpack('<f', b.read(4))[0]; m32 = struct.unpack('<f', b.read(4))[0]; m33 = struct.unpack('<f', b.read(4))[0]; m34 = struct.unpack('<f', b.read(4))[0]
+                    m41 = struct.unpack('<f', b.read(4))[0]; m42 = struct.unpack('<f', b.read(4))[0]; m43 = struct.unpack('<f', b.read(4))[0]; m44 = struct.unpack('<f', b.read(4))[0]
 
-                # Bones must a be non-zero length, or Blender will eventually remove them
-                newBone.tail = (newBone.head.x, newBone.head.y + 0.001, newBone.head.z)
-                newBone.use_deform = True
-                newBone.use_inherit_rotation = True
-                newBone.use_inherit_scale = True
+                    mr0 = [m11, m21, m31, m41]
+                    mr1 = [m12, m22, m32, m42]
+                    mr2 = [m13, m23, m33, m43]
+                    mr3 = [m14, m24, m34, m44]
+                    tfm = mathutils.Matrix([mr0, mr1, mr2, mr3])
+                    BoneTrsArray[BoneName_array[c]] = tfm
+                    # print("Matrix for " + BoneName_array[c] + ":\n" + str(tfm))
+                    # print(tfm.decompose())
 
-                # Store the original matrix rows as custom properties in bones so that they can be reused during animation transformation
-                newBone['matrow0'] = mr0
-                newBone['matrow1'] = mr1
-                newBone['matrow2'] = mr2
-                newBone['matrow3'] = mr3
+                    newBone = skel.data.edit_bones.new(BoneName_array[c])
+                    newBone.transform(tfm, scale=True, roll=False)
 
-            # Apply parents now that all bones exist
-            for bc in range(BoneCount):
-                currBone = skel.data.edit_bones[BoneName_array[bc]]
-                if (BoneParent_array[bc] != 65535):
-                    try:
-                        currBone.parent = skel.data.edit_bones[BoneName_array[BoneParent_array[bc]]]
-                    except:
-                        # If parent bone can't be found
-                        continue
+                    # Bones must a be non-zero length, or Blender will eventually remove them
+                    newBone.tail = (newBone.head.x, newBone.head.y + 0.001, newBone.head.z)
+                    newBone.use_deform = True
+                    newBone.use_inherit_rotation = True
+                    newBone.use_inherit_scale = True
 
-            # Calculate the length for every bone, so that they will not be removed
-            maxs = [0, 0, 0]
-            mins = [0, 0, 0]
-            for bone in BoneName_array:
+                    # Store the original matrix rows as custom properties in bones so that they can be reused during animation transformation
+                    newBone['matrow0'] = mr0
+                    newBone['matrow1'] = mr1
+                    newBone['matrow2'] = mr2
+                    newBone['matrow3'] = mr3
+
+                # Apply parents now that all bones exist
+                for bc in range(BoneCount):
+                    currBone = skel.data.edit_bones[BoneName_array[bc]]
+                    if (BoneParent_array[bc] != 65535):
+                        try:
+                            currBone.parent = skel.data.edit_bones[BoneName_array[BoneParent_array[bc]]]
+                        except:
+                            # If parent bone can't be found
+                            continue
+
+                # Calculate the length for every bone, so that they will not be removed
+                maxs = [0, 0, 0]
+                mins = [0, 0, 0]
+                for bone in BoneName_array:
+                    for i in range(3):
+                            maxs[i] = max(maxs[i], BoneTrsArray[bone].to_translation()[i])
+                            mins[i] = min(mins[i], BoneTrsArray[bone].to_translation()[i])
+                # Get armature dimensions
+                dimensions = []
                 for i in range(3):
-                        maxs[i] = max(maxs[i], BoneTrsArray[bone].to_translation()[i])
-                        mins[i] = min(mins[i], BoneTrsArray[bone].to_translation()[i])
-            # Get armature dimensions
-            dimensions = []
-            for i in range(3):
-                dimensions.append(maxs[i] - mins[i])
+                    dimensions.append(maxs[i] - mins[i])
 
-            length = max(0.001, (dimensions[0] + dimensions[1] + dimensions[2]) / 600) # very small indeed, but usage of the stick visualization still lets the bones be reasonably visible
+                length = max(0.001, (dimensions[0] + dimensions[1] + dimensions[2]) / 600) # very small indeed, but usage of the stick visualization still lets the bones be reasonably visible
 
-            for bone in skel.data.edit_bones:
-                bone.matrix = BoneTrsArray[bone.name]
-                bone.tail = bone.head + (bone.tail - bone.head).normalized() * length
+                for bone in skel.data.edit_bones:
+                    bone.matrix = BoneTrsArray[bone.name]
+                    bone.tail = bone.head + (bone.tail - bone.head).normalized() * length
 
-            if create_rest_action:
-                # Enter pose mode, and then create an action containing the rest pose if enabled
-                bpy.ops.object.mode_set(mode='POSE', toggle=False)
-                actionName = MODLName + "-rest"
-                action = bpy.data.actions.new(actionName)
-                action.pose_markers.new(actionName)
+                if create_rest_action:
+                    # Enter pose mode, and then create an action containing the rest pose if enabled
+                    bpy.ops.object.mode_set(mode='POSE', toggle=False)
+                    actionName = MODLName + "-rest"
+                    action = bpy.data.actions.new(actionName)
+                    action.pose_markers.new(actionName)
 
-                try:
-                    skel.animation_data.action
-                except:
-                    skel.animation_data_create()
+                    try:
+                        skel.animation_data.action
+                    except:
+                        skel.animation_data_create()
 
-                skel.animation_data.action = action
-                skel.animation_data.action.use_fake_user = True
-                context.scene.frame_current = context.scene.frame_start # Jump to beginning of new action
+                    skel.animation_data.action = action
+                    skel.animation_data.action.use_fake_user = True
+                    context.scene.frame_current = context.scene.frame_start # Jump to beginning of new action
 
-                for bone in skel.pose.bones:
-                    bone.matrix_basis.identity()
-                    bone.rotation_mode = 'QUATERNION'
+                    for bone in skel.pose.bones:
+                        bone.matrix_basis.identity()
+                        bone.rotation_mode = 'QUATERNION'
 
-                    # First, create position keyframes
-                    skel.keyframe_insert(data_path='pose.bones["%s"].%s' %
-                                       (bone.name, "location"),
-                                       frame=context.scene.frame_current,
-                                       group=actionName)
+                        # First, create position keyframes
+                        skel.keyframe_insert(data_path='pose.bones["%s"].%s' %
+                                           (bone.name, "location"),
+                                           frame=context.scene.frame_current,
+                                           group=actionName)
 
-                    # Next, create rotation keyframes
-                    skel.keyframe_insert(data_path='pose.bones["%s"].%s' %
-                                       (bone.name, "rotation_quaternion"),
-                                       frame=context.scene.frame_current,
-                                       group=actionName)
+                        # Next, create rotation keyframes
+                        skel.keyframe_insert(data_path='pose.bones["%s"].%s' %
+                                           (bone.name, "rotation_quaternion"),
+                                           frame=context.scene.frame_current,
+                                           group=actionName)
 
-                    # Last, create scale keyframes
-                    skel.keyframe_insert(data_path='pose.bones["%s"].%s' %
-                                       (bone.name, "scale"),
-                                       frame=context.scene.frame_current,
-                                       group=actionName)
+                        # Last, create scale keyframes
+                        skel.keyframe_insert(data_path='pose.bones["%s"].%s' %
+                                           (bone.name, "scale"),
+                                           frame=context.scene.frame_current,
+                                           group=actionName)
 
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+                bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
+            else:
+                print("No bones found, skip creating an armature and parenting")
 
 # Imports the meshes
-def importMeshes(context, MSHName, texture_ext, use_vertex_colors, use_uv_maps, allow_black):
+def importMeshes(context, MSHName, use_vertex_colors, use_uv_maps, uv_checks, allow_black):
     PolyGrp_array = []
     WeightGrp_array = []
 
     with open(MSHName, 'rb') as f:
-        time_start = time.time()
         f.seek(0x10, 0)
         MSHCheck = struct.unpack('<L', f.read(4))[0]
         if (MSHCheck == 0x4D455348):
@@ -694,7 +707,7 @@ def importMeshes(context, MSHName, texture_ext, use_vertex_colors, use_uv_maps, 
                         ColorCount += 1
 
                     else:
-                        raise RuntimeError("Unknown format!")
+                        print("Unknown format for " + BuffName)
                     f.seek(BuffParamRet, 0)
 
                 # Read vertice data
@@ -750,7 +763,7 @@ def importMeshes(context, MSHName, texture_ext, use_vertex_colors, use_uv_maps, 
 
                 print(PolyGrp_array[p].visGroupName + " UV end: " + str(f.tell()))
                 # Search for duplicate UV coordinates and make them unique so that Blender will not remove them
-                if (use_uv_maps and len(UV_array) > 0):
+                if (use_uv_maps and uv_checks and len(UV_array) > 0):
                     for uvmap in UV_array.values():
                         for uvcoorda in range(0, len(uvmap) - 1):
                             count = uvcoorda
@@ -774,7 +787,7 @@ def importMeshes(context, MSHName, texture_ext, use_vertex_colors, use_uv_maps, 
                         fc = struct.unpack('<L', f.read(4))[0] + 1
                         Face_array.append([fa,fb,fc])
                     else:
-                        raise RuntimeError("Unknown face bit value!")
+                        print("Unknown face bit value, skipping this face")
 
                 print(PolyGrp_array[p].visGroupName + " Face end: " + str(f.tell()))
 
@@ -891,8 +904,6 @@ def importMeshes(context, MSHName, texture_ext, use_vertex_colors, use_uv_maps, 
 
                 # Try to assign materials here, and enable smooth shading per mesh
                 for poly in mesh.polygons:
-                    poly.use_smooth = True
-
                     try:
                         material = bpy.data.materials[MODLGrp_array[PolyGrp_array[p].visGroupName]]
                         if material not in mesh.materials:
@@ -919,9 +930,9 @@ from bpy_extras.io_utils import (ImportHelper)
 
 class NUMDLB_Import_Operator(bpy.types.Operator, ImportHelper):
     """Loads a NUMDLB file and imports data referenced from it"""
-    bl_idname = ("screen.numdlb_import")
-    bl_label = ("NUMDLB Import")
-    bl_options = {'UNDO'}
+    bl_idname = ("import_scene.numdlb")
+    bl_label = ("Import NUMDLB")
+    bl_options = {'PRESET', 'UNDO'}
 
     filename_ext = ".numdlb"
     filter_glob: bpy.props.StringProperty(default="*.numdlb", options={'HIDDEN'})
@@ -956,10 +967,22 @@ class NUMDLB_Import_Operator(bpy.types.Operator, ImportHelper):
             default=True,
             )
 
+    uv_checks: bpy.props.BoolProperty(
+            name="Check UV Maps",
+            description="Check UV maps for duplicate coordinates and shift if needed; disable to decrease import time",
+            default=True,
+            )
+
     allow_black: bpy.props.BoolProperty(
             name="Black Vertex Colors",
             description="Allow black vertex coloring",
             default=False,
+            )
+
+    auto_rotate: bpy.props.BoolProperty(
+            name="Auto-Rotate Armature",
+            description="Rotate the armature so that everything points up z-axis, instead of up y-axis",
+            default=True,
             )
 
     create_rest_action: bpy.props.BoolProperty(
@@ -968,9 +991,9 @@ class NUMDLB_Import_Operator(bpy.types.Operator, ImportHelper):
             default=False,
             )
 
-    auto_rotate: bpy.props.BoolProperty(
-            name="Auto-Rotate Armature",
-            description="Rotate the armature so that everything points up z-axis, instead of up y-axis",
+    bones_in_front: bpy.props.BoolProperty(
+            name="Draw In Front",
+            description="The imported armature is drawn in front of everything, regardless  of view",
             default=True,
             )
 
@@ -1003,17 +1026,108 @@ class NUMDLB_Import_Operator(bpy.types.Operator, ImportHelper):
         print("Done! Model import completed in " + str(round(time.time() - time_start, 4)) + " seconds.")
         return {"FINISHED"}
 
+    def draw(self, context):
+        pass
+
+class NUMDLB_PT_import_material(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Materials"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        return operator.bl_idname == "IMPORT_SCENE_OT_numdlb"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "use_normal_maps")
+        layout.prop(operator, "use_prm_maps")
+        layout.prop(operator, "use_emissive_maps")
+        layout.prop(operator, "texture_ext")
+
+class NUMDLB_PT_import_mesh(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Mesh"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        return operator.bl_idname == "IMPORT_SCENE_OT_numdlb"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "use_uv_maps")
+        layout.prop(operator, "uv_checks")
+        layout.prop(operator, "use_vertex_colors")
+        layout.prop(operator, "allow_black")
+
+class NUMDLB_PT_import_armature(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Armature"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        return operator.bl_idname == "IMPORT_SCENE_OT_numdlb"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "auto_rotate")
+        layout.prop(operator, "create_rest_action")
+        layout.prop(operator, "bones_in_front")
+
+classes = (
+    NUMDLB_Import_Operator,
+    NUMDLB_PT_import_material,
+    NUMDLB_PT_import_mesh,
+    NUMDLB_PT_import_armature,
+)
+
 # Add to a menu
 def menu_func_import(self, context):
     self.layout.operator(NUMDLB_Import_Operator.bl_idname, text="NUMDLB (.numdlb)")
 
 def register():
-    bpy.utils.register_class(NUMDLB_Import_Operator)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 def unregister():
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
-    bpy.utils.unregister_class(NUMDLB_Import_Operator)
+
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
 if __name__ == "__main__":
     register

@@ -555,34 +555,34 @@ from bpy_extras.io_utils import (ImportHelper)
 
 class NUANMB_Import_Operator(bpy.types.Operator, ImportHelper):
     """Imports animation data from NUANMB files"""
-    bl_idname = ("screen.nuanmb_import")
-    bl_label = ("NUANMB Import")
-    bl_options = {'UNDO'}
+    bl_idname = ("import_scene.nuanmb")
+    bl_label = ("Import NUANMB")
+    bl_options = {'PRESET', 'UNDO'}
 
     filename_ext = ".nuanmb"
     filter_glob: bpy.props.StringProperty(default="*.nuanmb", options={'HIDDEN'})
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
 
     read_transform: bpy.props.BoolProperty(
-            name="Transformation Tracks",
+            name="Transformation",
             description="Read transformation data",
             default=True,
             )
 
     read_material: bpy.props.BoolProperty(
-            name="Material Tracks",
+            name="Material",
             description="Read material data",
             default=True,
             )
 
     read_visibility: bpy.props.BoolProperty(
-            name="Visibility Tracks",
+            name="Visibility",
             description="Read visibility data",
             default=True,
             )
 
     read_camera: bpy.props.BoolProperty(
-            name="Camera Tracks",
+            name="Camera",
             description="Read camera data",
             default=True,
             )
@@ -596,6 +596,9 @@ class NUANMB_Import_Operator(bpy.types.Operator, ImportHelper):
         print("Done! All animations imported in " + str(round(time.time() - time_start, 4)) + " seconds.")
         return {"FINISHED"}
 
+    def draw(self, context):
+        pass
+
     @classmethod
     def poll(self, context):
         if context.active_object is not None:
@@ -603,17 +606,52 @@ class NUANMB_Import_Operator(bpy.types.Operator, ImportHelper):
                 return True
         return False
 
+class NUANMB_PT_import_tracks(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Tracks"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        return operator.bl_idname == "IMPORT_SCENE_OT_nuanmb"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "read_transform")
+        layout.prop(operator, "read_material")
+        layout.prop(operator, "read_visibility")
+        layout.prop(operator, "read_camera")
+
+classes = (
+    NUANMB_Import_Operator,
+    NUANMB_PT_import_tracks,
+)
+
 # Add to a menu
 def menu_func_import(self, context):
     self.layout.operator(NUANMB_Import_Operator.bl_idname, text="NUANMB (.nuanmb)")
 
 def register():
-    bpy.utils.register_class(NUANMB_Import_Operator)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 def unregister():
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
-    bpy.utils.unregister_class(NUANMB_Import_Operator)
+
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
 if __name__ == "__main__":
     register
