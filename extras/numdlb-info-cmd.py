@@ -662,23 +662,28 @@ def main():
         parser.print_help()
         return
 
-    modelpath = args.file
-    if os.path.exists(modelpath):
-        if args.time:
-            time_start = time.time()
-        getModelInfo(modelpath)
+    if not os.path.exists(args.file):
+        print("Error: " + args.file + " does not lead to a valid file")
+        return
 
-        if not args.no_material:
-            importMaterials(MATName)
-        if not args.no_skeleton:
-            importSkeleton(SKTName)
-        if not args.no_mesh:
-            importMeshes(MSHName)
+    if not os.path.isfile(args.file):
+        print("Error: " + args.file + " is not a valid file")
+        return
 
-        if args.time:
-            print("Done! Model information read in " + str(round(time.time() - time_start, 4)) + " seconds.")
-    else:
-        print(modelpath + " does not lead to a valid file")
+    if args.time:
+        time_start = time.time()
+
+    getModelInfo(args.file)
+
+    if not args.no_material:
+        importMaterials(MATName)
+    if not args.no_skeleton:
+        importSkeleton(SKTName)
+    if not args.no_mesh:
+        importMeshes(MSHName)
+
+    if args.time:
+        print("Done! Model information read in " + str(round(time.time() - time_start, 4)) + " seconds.")
 
 if __name__ == "__main__":
     main()

@@ -443,16 +443,21 @@ def main():
         parser.print_help()
         return
 
-    animpath = args.file
-    if os.path.exists(animpath):
-        if args.time:
-            time_start = time.time()
-        getAnimationInfo(animpath)
+    if not os.path.exists(args.file):
+        print("Error: " + animpath + " does not lead to a valid file")
+        return
 
-        if args.time:
-            print("Done! Animation information read in " + str(round(time.time() - time_start, 4)) + " seconds.")
-    else:
-        print(animpath + " does not lead to a valid file")
+    if not os.path.isfile(args.file):
+        print("Error: " + args.file + " is not a valid file")
+        return
+
+    if args.time:
+        time_start = time.time()
+
+    getAnimationInfo(args.file)
+
+    if args.time:
+        print("Done! Animation information read in " + str(round(time.time() - time_start, 4)) + " seconds.")
 
 if __name__ == "__main__":
     main()
