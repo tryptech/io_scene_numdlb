@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2020-12-01
+* UI slightly revamped, by grouping all options into separate panels for easier discerning.
+* Added an option to disable UV map checks, allowing to decrease import time.
+* Models without armatures are no longer parented to empty armatures. Armatures are created only if they have at least one bone.
+* Allow saving and removing presets for switching more changes quickly.
+* Ensure that generated names actually follow Blender naming scheme. This change finally allows materials to be assigned correctly to all meshes, especially for stage models. Effectively fixes issue #15.
+* Button labels now place "Import" before the file extension, for better consistency.
+* NUMDLB importer will no longer abort on any case except for invalid files.
+* Remove legacy code intended for unsupported older Blender/Python versions.
+
 ## [2.0.1] - 2020-09-03
 * Multiply nodes have a default factor of 1.0
 * The B/Blue value for all normal map combine RGB nodes are set to 1.0
