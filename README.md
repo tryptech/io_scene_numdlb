@@ -19,7 +19,7 @@ Imports data referenced by NUMDLB files and NUANMB files (binary model and anima
 * PNG textures: <https://gitlab.com/Worldblender/smash-ultimate-textures>
 
 ## Installation
-This set of two scripts requires Blender 2.80 or later, but only 2.83 LTS has been tested.
+This set of two scripts requires Blender 2.80 or later, but only 2.83 LTS has been tested. Some users report that Blender 2.90 and later are also working.
 
 1. Clone or download this repository. If downloaded, extract the files after that.
 
