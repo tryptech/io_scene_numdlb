@@ -134,7 +134,13 @@ def getModelInfo(context, filepath, texture_ext, use_vertex_colors, use_uv_maps,
                     meshMaterialName = readVarLenString(md)
                     if meshGroupName in MODLGrp_array:
                         nameCounter += 1
-                        MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:]] = meshMaterialName
+
+                        if (nameCounter % 10 == 0):
+                            MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:5] + "0"] = meshMaterialName
+                        elif (nameCounter % 100 == 0):
+                            MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:5] + "00"] = meshMaterialName
+                        else:
+                            MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:5]] = meshMaterialName
                     else:
                         MODLGrp_array[meshGroupName] = meshMaterialName
                         nameCounter = 0
@@ -591,7 +597,13 @@ def importMeshes(context, MSHName, use_vertex_colors, use_uv_maps, uv_checks, al
                 visGroupBuffer = readVarLenString(f)
                 if (len(PolyGrp_array) > 0 and (PolyGrp_array[g - 1].visGroupName == visGroupBuffer or PolyGrp_array[g - 1].visGroupName[:-4] == visGroupBuffer)):
                     nameCounter += 1
-                    ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:]
+
+                    if (nameCounter % 10 == 0):
+                        ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:5] + "0"
+                    elif (nameCounter % 100 == 0):
+                        ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:5] + "00"
+                    else:
+                        ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:5]
                 else:
                     ge.visGroupName = visGroupBuffer
                     nameCounter = 0
@@ -626,7 +638,13 @@ def importMeshes(context, MSHName, use_vertex_colors, use_uv_maps, uv_checks, al
                 groupNameBuffer = readVarLenString(f)
                 if (len(WeightGrp_array) > 0 and (WeightGrp_array[b - 1].groupName == groupNameBuffer or WeightGrp_array[b - 1].groupName[:-4] == groupNameBuffer)):
                     nameCounter += 1
-                    be.groupName = groupNameBuffer + str(nameCounter * .001)[1:]
+
+                    if (nameCounter % 10 == 0):
+                        be.groupName = groupNameBuffer + str(nameCounter * .001)[1:5] + "0"
+                    elif (nameCounter % 100 == 0):
+                        be.groupName = groupNameBuffer + str(nameCounter * .001)[1:5] + "00"
+                    else:
+                        be.groupName = groupNameBuffer + str(nameCounter * .001)[1:5]
                 else:
                     be.groupName = groupNameBuffer
                     nameCounter = 0
