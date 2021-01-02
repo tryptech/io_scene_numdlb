@@ -3,13 +3,13 @@ Imports data referenced by NUMDLB files and NUANMB files (binary model and anima
 
 **Both the model importer script and the animation importer script are now ready for daily use. This branch has the version of this addon compatible with <= Blender 2.79. Check out the `master` branch to get a version for >= Blender 2.80 and later, with Blender 2.83 LTS guaranteed to be compatible. There are a few limitations in both scripts:**
 
-* Vertex colors are set, but the alpha channel is not used, as there is no way to set it within the Blender UI.
+* Vertex colors are set, but the alpha channel is not used, as there is no way to set it within the Blender UI. However, Blender 2.80 and later do support setting this alpha channel via Python. *Use the master branch to gain this support.*
 
 * Models must have their bone axises aligned, or animations will cause meshes to deform incorrectly. Models imported with the NUMDLB importer script and SMD (Valve Source Model) importer script take this into account.
 
 * Only transform and visibility tracks are supported by the NUANMB importer. Material and camera tracks are currently unsupported.
 
-* The following kinds of textures are read, but currently not imported (the Cycles and EEVEE (2.80 and later) rendering engines may support them however):
+* The following kinds of textures are fully supported only in Blender 2.80 and later, via the Cycles and EEVEE rendering engines *(use the master branch to gain this support)*:
     * Normal maps
     * PRM maps (Used with Principled BSDF shaders)
     * Emissive maps
@@ -18,8 +18,6 @@ Imports data referenced by NUMDLB files and NUANMB files (binary model and anima
 * Project thread: <https://www.vg-resource.com/thread-34836.html>
 
 * Direct folder (MEGA.nz): <https://mega.nz/#F!AAwWzCjT!Zd5kKpuQcE647DSRtpFShw>
-
-* Direct folder (Google Drive): <https://drive.google.com/open?id=1QucKyF_4IMFvZNZe4mMEiUXiAH5tpTIc>
 
 * PNG textures: <https://gitlab.com/Worldblender/smash-ultimate-textures>
 

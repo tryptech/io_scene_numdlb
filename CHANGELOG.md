@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2021-01-02 (Backport release)
+* Added an option to disable UV map checks, allowing to decrease import time.
+* Models without armatures are no longer parented to empty armatures. Armatures are created only if they have at least one bone.
+* Allow saving and removing presets for switching more changes quickly.
+* Ensure that generated names actually follow Blender naming scheme. This change finally allows materials to be assigned correctly to all meshes, especially for stage models. Effectively fixes issue #15.
+* Button labels now place "Import" before the file extension, for better consistency.
+* NUMDLB importer will no longer abort on any case except for invalid files.
+
 ## [1.4.0] - 2020-09-03 (Backport release)
 * Image alpha determined by specific keywords (most commonly "alp") in material names and/or texture names, instead of being set unilaterally for every texture. The option to unilaterally set image alpha has been subsequently removed.
 * Image transparency also affects material transparency.
