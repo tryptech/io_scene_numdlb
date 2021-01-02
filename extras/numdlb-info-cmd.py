@@ -112,15 +112,6 @@ PolyGrp_array = []
 WeightGrp_array = []
 print_debug_info = True
 
-def findUVImage(matNameQuery, useUVMap2):
-    for mat in Materials_array:
-        if (mat.materialName == matNameQuery):
-            if useUVMap2:
-                return mat.color2Name
-            else:
-                return mat.color1Name
-    return ""
-
 def readVarLenString(file):
     nameBuffer = []
     while('\x00' not in nameBuffer):
@@ -176,7 +167,13 @@ def getModelInfo(filepath):
                     meshMaterialName = readVarLenString(md)
                     if meshGroupName in MODLGrp_array:
                         nameCounter += 1
-                        MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:]] = meshMaterialName
+
+                        if (nameCounter % 10 == 0):
+                            MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:5] + "0"] = meshMaterialName
+                        elif (nameCounter % 100 == 0):
+                            MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:5] + "00"] = meshMaterialName
+                        else:
+                            MODLGrp_array[meshGroupName + str(nameCounter * .001)[1:5]] = meshMaterialName
                     else:
                         MODLGrp_array[meshGroupName] = meshMaterialName
                         nameCounter = 0
@@ -391,7 +388,13 @@ def importMeshes(MSHName):
                 visGroupBuffer = readVarLenString(f)
                 if (len(PolyGrp_array) > 0 and (PolyGrp_array[g - 1].visGroupName == visGroupBuffer or PolyGrp_array[g - 1].visGroupName[:-4] == visGroupBuffer)):
                     nameCounter += 1
-                    ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:]
+
+                    if (nameCounter % 10 == 0):
+                        ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:5] + "0"
+                    elif (nameCounter % 100 == 0):
+                        ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:5] + "00"
+                    else:
+                        ge.visGroupName = visGroupBuffer + str(nameCounter * .001)[1:5]
                 else:
                     ge.visGroupName = visGroupBuffer
                     nameCounter = 0
@@ -430,7 +433,13 @@ def importMeshes(MSHName):
                 groupNameBuffer = readVarLenString(f)
                 if (len(WeightGrp_array) > 0 and (WeightGrp_array[b - 1].groupName == groupNameBuffer or WeightGrp_array[b - 1].groupName[:-4] == groupNameBuffer)):
                     nameCounter += 1
-                    be.groupName = groupNameBuffer + str(nameCounter * .001)[1:]
+
+                    if (nameCounter % 10 == 0):
+                            be.groupName = groupNameBuffer + str(nameCounter * .001)[1:5] + "0"
+                    elif (nameCounter % 100 == 0):
+                        be.groupName = groupNameBuffer + str(nameCounter * .001)[1:5] + "00"
+                    else:
+                        be.groupName = groupNameBuffer + str(nameCounter * .001)[1:5]
                 else:
                     be.groupName = groupNameBuffer
                     nameCounter = 0
@@ -485,7 +494,7 @@ def importMeshes(MSHName):
                         ColorCount += 1
 
                     else:
-                        raise RuntimeError("Unknown format!")
+                        print("Unknown format!")
                     f.seek(BuffParamRet, 0)
                 # Read vertice data
                 print("Total number of vertices found: " + str(PolyGrp_array[p].verticeCount))
@@ -545,15 +554,6 @@ def importMeshes(MSHName):
 
                 if print_debug_info:
                     print(PolyGrp_array[p].visGroupName + " UV end: " + str(f.tell()))
-                # Search for duplicate UV coordinates and make them unique so that Blender will not remove them
-                if (len(UV_array) > 0):
-                    for uvmap in UV_array.values():
-                        for uvcoorda in range(0, len(uvmap) - 1):
-                            count = uvcoorda
-                            for uvcoordb in range(count + 1, len(uvmap)):
-                                if (uvmap[uvcoordb] == uvmap[uvcoorda]):
-                                    uvmap[uvcoordb][0] += 0.000000000000001
-                                    uvmap[uvcoordb][1] += 0.000000000000001
 
                 # Read face data
                 f.seek(FaceBuffOffset + PolyGrp_array[p].facepointStart, 0)
@@ -572,7 +572,7 @@ def importMeshes(MSHName):
                         fc = struct.unpack('<L', f.read(4))[0] + 1
                         Face_array.append([fa,fb,fc])
                     else:
-                        raise RuntimeError("Unknown face bit value!")
+                        print("Unknown face bit value, skipping this face")
 
                 if print_debug_info:
                     print(PolyGrp_array[p].visGroupName + " Face end: " + str(f.tell()))
@@ -680,23 +680,28 @@ def main():
         parser.print_help()
         return
 
-    modelpath = args.file
-    if os.path.exists(modelpath):
-        if args.time:
-            time_start = time.time()
-        getModelInfo(modelpath)
+    if not os.path.exists(args.file):
+        print("Error: " + args.file + " does not lead to a valid file")
+        return
 
-        if not args.no_material:
-            importMaterials(MATName)
-        if not args.no_skeleton:
-            importSkeleton(SKTName)
-        if not args.no_mesh:
-            importMeshes(MSHName)
+    if not os.path.isfile(args.file):
+        print("Error: " + args.file + " is not a valid file")
+        return
 
-        if args.time:
-            print("Done! Model information read in " + str(round(time.time() - time_start, 4)) + " seconds.")
-    else:
-        print(modelpath + " does not lead to a valid file")
+    if args.time:
+        time_start = time.time()
+
+    getModelInfo(args.file)
+
+    if not args.no_material:
+        importMaterials(MATName)
+    if not args.no_skeleton:
+        importSkeleton(SKTName)
+    if not args.no_mesh:
+        importMeshes(MSHName)
+
+    if args.time:
+        print("Done! Model information read in " + str(round(time.time() - time_start, 4)) + " seconds.")
 
 if __name__ == "__main__":
     main()
