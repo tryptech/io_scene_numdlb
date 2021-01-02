@@ -9,7 +9,7 @@ Tooltip: 'Import *.NUANMB (.nuanmb)'
 
 __author__ = ["Richard Qian (Worldblender)", "Ploaj"]
 __url__ = ["https://gitlab.com/Worldblender/io_scene_numdlb"]
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __bpydoc__ = """\
 """
 
@@ -17,7 +17,7 @@ bl_info = {
     "name": "Super Smash Bros. Ultimate Animation Importer",
     "description": "Imports animation data from NUANMB files (binary animation format used by some games developed by Bandai-Namco)",
     "author": "Richard Qian (Worldblender), Ploaj",
-    "version": (1, 4, 0),
+    "version": (1, 5, 0),
     "blender": (2, 77, 0),
     "api": 31236,
     "location": "File > Import",
@@ -569,8 +569,8 @@ from bpy_extras.io_utils import (ImportHelper)
 class NUANMB_Import_Operator(bpy.types.Operator, ImportHelper):
     """Imports animation data from NUANMB files"""
     bl_idname = ("screen.nuanmb_import")
-    bl_label = ("NUANMB Import")
-    bl_options = {'UNDO'}
+    bl_label = ("Import NUANMB")
+    bl_options = {'PRESET', 'UNDO'}
 
     filename_ext = ".nuanmb"
     filter_glob = bpy.props.StringProperty(default="*.nuanmb", options={'HIDDEN'})
