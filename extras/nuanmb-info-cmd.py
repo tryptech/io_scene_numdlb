@@ -9,9 +9,10 @@ class AnimTrack:
         self.dataOffset = 0
         self.dataSize = 0
         self.animations = []
+        self.Unk3_0 = 0
 
     def __repr__(self):
-        return "Node name: " + str(self.name) + "\t| Type: " + str(self.type) + "\t| Flags: " + str(self.flags) + "\t| # of frames: " + str(self.frameCount) + "\t| Data offset: " + str(self.dataOffset) + "\t| Data size: " + str(self.dataSize) + "\n"
+        return "Node name: " + str(self.name) + "\t| Type: " + str(self.type) + "\t| Flags: " + str(self.flags) + "\t| # of frames: " + str(self.frameCount) + "\t| Data offset: " + str(self.dataOffset) + "\t| Data size: " + str(self.dataSize) + "\t| Unk3_0 = " + str(self.Unk3_0) + "\n"
 
 class AnimCompressedHeader:
     def __init__(self):
@@ -113,7 +114,10 @@ def getAnimationInfo(animpath):
     NodeCount = 0
     global AnimGroups; AnimGroups = {}
     # Structure of this dict is: {AnimType (numeric): an array of AnimTrack objects}
-
+    
+    global AnimationBufferOffset; 
+    AnimationBufferOffset = 0
+    
     if os.path.isfile(animpath):
         with open(animpath, 'rb') as am:
             am.seek(0x10, 0)
@@ -121,10 +125,12 @@ def getAnimationInfo(animpath):
             if (AnimCheck == 0x414E494D):
                 AnimVerA = struct.unpack('<H', am.read(2))[0]
                 AnimVerB = struct.unpack('<H', am.read(2))[0]
+                print("AnimVerA = " + str(AnimVerA) + ", AnimVerB = " + str(AnimVerB))
                 FrameCount = struct.unpack('<f', am.read(4))[0]
-                print("Total # of frames: " + str(FrameCount))
+                print("Final Frame Index: " + str(FrameCount))
                 Unk1 = struct.unpack('<H', am.read(2))[0]
                 Unk2 = struct.unpack('<H', am.read(2))[0]
+                print("Unk1: " + str(Unk1) + " , Unk2: " + str(Unk2))
                 AnimNameOffset = am.tell() + struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                 GroupOffset = am.tell() + struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                 GroupCount = struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
@@ -149,7 +155,7 @@ def getAnimationInfo(animpath):
                         NodeDataOffset = am.tell() + struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                         at = AnimTrack()
                         # Special workaround for material tracks
-                        if (NodeAnimType == AnimType.Material.value):
+                        if (NodeAnimType == AnimType.Material.value or NodeAnimType==AnimType.Camera.value):
                             TrackCount = struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                             NextNodePos = am.tell()
                             am.seek(NodeNameOffset, 0)
@@ -162,7 +168,7 @@ def getAnimationInfo(animpath):
                                 TypeOffset = am.tell() + struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                                 at.flags = struct.unpack('<L', am.read(4))[0]
                                 at.frameCount = struct.unpack('<L', am.read(4))[0]
-                                Unk3_0 = struct.unpack('<L', am.read(4))[0]
+                                at.Unk3_0 = struct.unpack('<L', am.read(4))[0]
                                 at.dataOffset = struct.unpack('<L', am.read(4))[0]
                                 at.dataSize = struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                                 NextTrackPos = am.tell()
@@ -177,7 +183,7 @@ def getAnimationInfo(animpath):
                             am.seek(NodeDataOffset + 0x08, 0)
                             at.flags = struct.unpack('<L', am.read(4))[0]
                             at.frameCount = struct.unpack('<L', am.read(4))[0]
-                            Unk3_0 = struct.unpack('<L', am.read(4))[0]
+                            at.Unk3_0 = struct.unpack('<L', am.read(4))[0]
                             at.dataOffset = struct.unpack('<L', am.read(4))[0]
                             at.dataSize = struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
                             at.type = readVarLenString(am)
@@ -190,6 +196,7 @@ def getAnimationInfo(animpath):
                     am.seek(NextGroupPos, 0)
                 print(AnimGroups)
                 am.seek(BufferOffset, 0) # This must happen or all data will be read incorrectly
+                AnimationBufferOffset = am.tell()
                 readAnimations(io.BytesIO(am.read(BufferSize)))
             else:
                 raise RuntimeError("%s is not a valid NUANMB file." % filepath)
@@ -203,7 +210,7 @@ def readAnimations(ao):
                 readDirectData(ao, track)
             if ((track.flags & 0xff00) == AnimTrackFlags.Direct.value):
                 for t in range(track.frameCount):
-                    readDirect(ao, track)
+                    readDirectData(ao, track)
             if ((track.flags & 0xff00) == AnimTrackFlags.Compressed.value):
                 readCompressedData(ao, track)
             print(track.name + " | " + AnimType(ag[0]).name)
@@ -220,8 +227,8 @@ def readDirectData(aq, track):
         # Rotation [X, Y, Z, W]
         rx = struct.unpack('<f', aq.read(4))[0]; ry = struct.unpack('<f', aq.read(4))[0]; rz = struct.unpack('<f', aq.read(4))[0]; rw = struct.unpack('<f', aq.read(4))[0]
         # Position [X, Y, Z]
-        px = struct.unpack('<f', aq.read(4))[0]; py = struct.unpack('<f', aq.read(4))[0]; pz = struct.unpack('<f', aq.read(4))[0]
-        track.animations.append(mathutils.Matrix([[px, py, pz, 0], [rx, ry, rz, rw], [sx, sy, sz, 1]]))
+        px = struct.unpack('<f', aq.read(4))[0]; py = struct.unpack('<f', aq.read(4))[0]; pz = struct.unpack('<f', aq.read(4))[0]; pw = struct.unpack('<f', aq.read(4))[0]
+        track.animations.append(mathutils.Matrix([[px, py, pz, pw], [rx, ry, rz, rw], [sx, sy, sz, 1]]))
         """
         Matrix composition:
                 | X | Y | Z | W |
@@ -253,13 +260,17 @@ def readDirectData(aq, track):
 def readCompressedData(aq, track):
     ach = AnimCompressedHeader()
     ach.unk_4 = struct.unpack('<H', aq.read(2))[0]
+    #print("ach.unk_4 = " + str(ach.unk_4))
+    #print("ach.flags offset = " + str(AnimationBufferOffset + aq.tell()))
     ach.flags = struct.unpack('<H', aq.read(2))[0]
+    #print("ach.flags = " + str(ach.flags))
     ach.defaultDataOffset = struct.unpack('<H', aq.read(2))[0]
     ach.bitsPerEntry = struct.unpack('<H', aq.read(2))[0]
     ach.compressedDataOffset = struct.unpack('<L', aq.read(4))[0]
     ach.frameCount = struct.unpack('<L', aq.read(4))[0]
+    print("ACH= { " + str(ach) + " }")
     bp = 0 # Workaround to allow the bitreader function to continue at wherever it left off
-
+    
     if ((track.flags & 0x00ff) == AnimTrackFlags.Transform.value):
         acj = [] # Contains an array of AnimCompressedItem objects
         for i in range(9):
@@ -268,7 +279,7 @@ def readCompressedData(aq, track):
             Count = struct.unpack('<L', aq.read(4))[0]; aq.seek(0x04, 1)
             aci = AnimCompressedItem(Start, End, Count)
             acj.append(aci)
-        #print(acj)
+        print(acj)
 
         aq.seek(track.dataOffset + ach.defaultDataOffset, 0)
         # Scale [X, Y, Z]
@@ -276,7 +287,7 @@ def readCompressedData(aq, track):
         # Rotation [X, Y, Z, W]
         rx = struct.unpack('<f', aq.read(4))[0]; ry = struct.unpack('<f', aq.read(4))[0]; rz = struct.unpack('<f', aq.read(4))[0]; rw = struct.unpack('<f', aq.read(4))[0]
         # Position [X, Y, Z, W]
-        px = struct.unpack('<f', aq.read(4))[0]; py = struct.unpack('<f', aq.read(4))[0]; pz = struct.unpack('<f', aq.read(4))[0]; pw = struct.unpack('<H', aq.read(2))[0]
+        px = struct.unpack('<f', aq.read(4))[0]; py = struct.unpack('<f', aq.read(4))[0]; pz = struct.unpack('<f', aq.read(4))[0]; pw = struct.unpack('<f', aq.read(4))[0]
 
         aq.seek(track.dataOffset + ach.compressedDataOffset, 0)
         for f in range(ach.frameCount):
@@ -318,11 +329,13 @@ def readCompressedData(aq, track):
                 # The 'Transform' type frequently depends on flags
                 if ((ach.flags & 0x3) == 0x3):
                     # Scale isotropic
+                    # print("Scale Isotropic")
                     if (itemIndex == 0):
                         transform[2][3] = frameValue
 
                 if ((ach.flags & 0x3) == 0x1):
                     # Scale normal
+                    # print("Scale Normal")
                     if (itemIndex == 0):
                         transform[2][0] = frameValue
                     elif (itemIndex == 1):
