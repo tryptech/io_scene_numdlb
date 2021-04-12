@@ -222,10 +222,10 @@ def getAnimationInfo(self, context, camera_selected, filepath, read_transform, r
                     readAnimations(io.BytesIO(am.read(BufferSize)))
 
                     # Now get the data into Blender
-                    if (camera_selected):
+                    if (read_camera and camera_selected):
                         importCamera(context)
                     else:
-                        importAnimations(context, read_transform, read_material, read_visibility, read_camera)
+                        importAnimations(context, read_transform, read_material, read_visibility)
 
                 else:
                     raise RuntimeError("%s is not a valid NUANMB file." % animPath)
@@ -552,7 +552,7 @@ def keyframe_insert_locrotscale(obj, boneName, frame, groupName):
                         group = groupName)
 
 # This function deals with all of the Blender-specific operations
-def importAnimations(context, read_transform, read_material, read_visibility, read_camera):
+def importAnimations(context, read_transform, read_material, read_visibility):
     obj = bpy.context.object
     bpy.ops.object.mode_set(mode='POSE', toggle=False)
 
@@ -697,9 +697,6 @@ def importAnimations(context, read_transform, read_material, read_visibility, re
                                         frame = blender_frame,
                                         group = track.name)
                     blender_frame += 1
-
-        elif (read_camera and ag[0] == AnimType.Camera.value):
-            print("Importing camera animations not yet supported")
 
     # Clear any unkeyed poses
     for bone in obj.pose.bones:
