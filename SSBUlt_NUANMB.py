@@ -1,14 +1,14 @@
 #!BPY
 
 bl_info = {
-    "name": "Super Smash Bros. Ultimate Animation Importer + Camera",
+    "name": "Super Smash Bros. Ultimate Animation + Camera Importer",
     "description": "Imports animation data from NUANMB files (binary animation format used by some games developed by Bandai-Namco)",
     "author": "Carlos, Richard Qian (Worldblender), Ploaj",
     "version": (1, 0, 0),
-    "blender": (2, 91, 0),
+    "blender": (2, 80, 0),
     "location": "File > Import",
     "category": "Import-Export"}
-    
+
 import bpy, enum, io, math, mathutils, os, struct, time
 
 class AnimTrack:
@@ -150,7 +150,7 @@ def getAnimationInfo(self, context, camera_selected, filepath, read_transform, r
                     FinalFrameIndex = struct.unpack('<f', am.read(4))[0]
                     FrameCount = FinalFrameIndex + 1
                     print("Total # of frames: " + str(FrameCount))
-                    print("FinalFrameIndex: " +str(FinalFrameIndex)) 
+                    print("Final frame index: " + str(FinalFrameIndex))
                     Unk1 = struct.unpack('<H', am.read(2))[0]
                     Unk2 = struct.unpack('<H', am.read(2))[0]
                     AnimNameOffset = am.tell() + struct.unpack('<L', am.read(4))[0]; am.seek(0x04, 1)
@@ -226,7 +226,6 @@ def getAnimationInfo(self, context, camera_selected, filepath, read_transform, r
                         importCamera(context)
                     else:
                         importAnimations(context, read_transform, read_material, read_visibility, read_camera)
-                    
 
                 else:
                     raise RuntimeError("%s is not a valid NUANMB file." % animPath)
@@ -450,28 +449,24 @@ def readCompressedData(aq, track):
 
             track.animations.append(values)
 
-
 # This function deals with all of the Blender-camera-specific operations
 def importCamera(context):
-    #should only enter this function if the selected object was the camera.
+    # Should only enter this function if the selected object was the camera.
     cam = bpy.context.object
 
-    #Create the animation_data if it doesnt already exist
+    # Create the animation_data if it doesnt already exist
     try:
         cam.animation_data.action
     except:
         cam.animation_data_create()
-    
-    #idk lol
+
     action = bpy.data.actions.new(AnimName)
     cam.animation_data.action = action
-    
-    #matrix setup
+
+    # Matrix setup
     cam.matrix_basis.identity()
     cam.rotation_mode = "QUATERNION"
-    
-    #Start the animation on Frame 1, which is the blender default
-    
+
     # Animation frames start at 1, the same as what Blender uses by default
     context.scene.frame_start = 1
     sm = action.pose_markers.new(AnimName + "-start")
@@ -481,7 +476,7 @@ def importCamera(context):
     em.frame = context.scene.frame_end
 
     for ag in AnimGroups.items():
-        if (ag[0] == AnimType.Transform.value):  
+        if (ag[0] == AnimType.Transform.value):
             cam.name = ag[1][0].name
             # Iterate by frame, and loop through tracks by name to set the transformation matrices
             for frame in range(int(FrameCount)):
@@ -493,9 +488,9 @@ def importCamera(context):
                     sx = mathutils.Matrix.Scale(track.animations[frame][2][0], 4, (1, 0, 0)) # Scale matrix
                     sy = mathutils.Matrix.Scale(track.animations[frame][2][1], 4, (0, 1, 0))
                     sz = mathutils.Matrix.Scale(track.animations[frame][2][2], 4, (0, 0, 1))
-                    
+
                     cam.matrix_local = mathutils.Matrix(pm @ rm @ sx @ sy @ sz)
-                    
+
                     cam.keyframe_insert(data_path ='location',
                                             frame = frame + 1,
                                             group = AnimName)
@@ -505,14 +500,14 @@ def importCamera(context):
                     cam.keyframe_insert(data_path ='scale',
                                             frame = frame + 1,
                                             group = AnimName)
-                                                                
+
         elif (ag[0] == AnimType.Camera.value):
-            print("Storing Camera Flags and Data as custom data")  
+            print("Storing Camera Flags and Data as custom data")
             for track in ag[1]:
                 print ("Camera Track Type: " + str(track.type))
                 if(track.type == "FieldOfView"):
                     blender_frame = 1
-                    #TODO: Blender doesn't allow keyframing FOV directly,
+                    # TODO: Blender doesn't allow keyframing FOV directly,
                     # need to figure out conversion between smash FOV
                     # and convert that to Sensor Width and Focal Length
                     for anim_frame in track.animations:
@@ -521,33 +516,30 @@ def importCamera(context):
                                             frame = blender_frame,
                                             group = AnimName)
                         blender_frame += 1
-                    
-            
-    
-    #Create an empty object and then parent this camera to it.
-    #That way, we can rotate the empty 90 to match the orientation from the .numdlb script
+
+    # Create an empty object and then parent this camera to it.
+    # That way, we can rotate the empty 90 to match the orientation from the .numdlb script
     empty = bpy.data.objects.new("empty", None)
     empty.name = "Cam-Rotation-Fixer"
     bpy.context.collection.objects.link(empty)
-    
+
     empty.rotation_euler[0] = math.radians(90)
     cam.parent = empty
-    
-    #Now change the camera object's camera data, such as FOV, Lens Type, etc...
+
+    # Now change the camera object's camera data, such as FOV, Lens Type, etc...
     cam.data.type       = "PERSP"
     cam.data.angle      = math.radians(56.7)
     cam.data.shift_y    = 0.060
     cam.data.sensor_fit = "HORIZONTAL"
-       
-    #Now change some scene data just incase they werent already set
+
+    # Now change some scene data just incase they werent already set
     render = bpy.context.scene.render
     render.resolution_x   = 1920
     render.resolution_y   = 1080
     render.pixel_aspect_x = 1
     render.pixel_aspect_y = 1
     render.fps            = 60
-    
-          
+
 def keyframe_insert_locrotscale(obj, boneName, frame, groupName):
     obj.keyframe_insert(data_path = 'pose.bones["%s"].%s' % (boneName, 'location'),
                         frame = frame,
@@ -557,17 +549,17 @@ def keyframe_insert_locrotscale(obj, boneName, frame, groupName):
                         group = groupName)
     obj.keyframe_insert(data_path = 'pose.bones["%s"].%s' % (boneName, 'scale'),
                         frame = frame,
-                        group = groupName)                        
+                        group = groupName)
 
 # This function deals with all of the Blender-specific operations
 def importAnimations(context, read_transform, read_material, read_visibility, read_camera):
     obj = bpy.context.object
     bpy.ops.object.mode_set(mode='POSE', toggle=False)
-    
-    #Re-Enable inheriting scale for bones. Will get turned off per-animation
+
+    # Re-Enable inheriting scale for bones. Will get turned off per-animation
     for bone in obj.data.bones:
         bone.inherit_scale = 'FULL'
-    
+
     # Force all bones to use quaternion rotation
     # Also set each bone to the identity matrix
     for bone in obj.pose.bones:
@@ -607,16 +599,16 @@ def importAnimations(context, read_transform, read_material, read_visibility, re
                         sx = mathutils.Matrix.Scale(track.animations[frame][2][0], 4, (1, 0, 0)) # Scale matrix
                         sy = mathutils.Matrix.Scale(track.animations[frame][2][1], 4, (0, 1, 0))
                         sz = mathutils.Matrix.Scale(track.animations[frame][2][2], 4, (0, 0, 1))
-                        
+
                         scalex = track.animations[frame][2][0]
                         scaley = track.animations[frame][2][1]
                         scalez = track.animations[frame][2][2]
-                        
+
                         if ((scalex != 1) or (scaley != 1) or (scalez != 1)):
                             for bone in obj.data.bones:
                                 if (bone.name == track.name):
                                     bone.inherit_scale = 'NONE'
-                        
+
                         transform = mathutils.Matrix(pm @ rm @ sx @ sy @ sz)
                         tfmArray[track.name] = transform
 
@@ -650,13 +642,11 @@ def importAnimations(context, read_transform, read_material, read_visibility, re
                                 if match: #FoundHelperBone
                                     hb = obj.pose.bones[match]
                                     hb.matrix = tbone.parent.matrix @ tfmArray[tbone.name]
-                                    keyframe_insert_locrotscale(obj, hb.name, frame + 1, AnimName)                                    
-                                    
-                                    
+                                    keyframe_insert_locrotscale(obj, hb.name, frame + 1, AnimName)
+
                         else:
                             tbone.matrix = tfmArray[tbone.name]
-                            
-   
+
                         # First, add the position keyframes
                         try:
                             obj.keyframe_insert(data_path='pose.bones["%s"].%s' %
@@ -683,7 +673,6 @@ def importAnimations(context, read_transform, read_material, read_visibility, re
                                        group=AnimName)
                         except:
                             continue
-                    
 
         elif (read_visibility and ag[0] == AnimType.Visibility.value):
             for track in ag[1]:
@@ -699,7 +688,6 @@ def importAnimations(context, read_transform, read_material, read_visibility, re
                             target.keyframe_insert(data_path="hide_viewport", frame=vframe + 1, group=AnimName)
                             target.keyframe_insert(data_path="hide_render", frame=vframe + 1, group=AnimName)
 
-
         elif (read_material and ag[0] == AnimType.Material.value):
             for track in ag[1]:
                 blender_frame = 1
@@ -709,7 +697,6 @@ def importAnimations(context, read_transform, read_material, read_visibility, re
                                         frame = blender_frame,
                                         group = track.name)
                     blender_frame += 1
-                    
 
         elif (read_camera and ag[0] == AnimType.Camera.value):
             print("Importing camera animations not yet supported")
@@ -730,7 +717,7 @@ class NUANMB_Import_Operator(bpy.types.Operator, ImportHelper):
     filename_ext = ".nuanmb"
     filter_glob: bpy.props.StringProperty(default="*.nuanmb", options={'HIDDEN'})
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
-    
+
     read_transform: bpy.props.BoolProperty(
             name="Transformation",
             description="Read transformation data",
@@ -754,7 +741,7 @@ class NUANMB_Import_Operator(bpy.types.Operator, ImportHelper):
             description="Read camera data",
             default=True,
             )
-    
+
     def execute(self, context):
         keywords = self.as_keywords(ignore=("filter_glob", "files",))
         time_start = time.time()

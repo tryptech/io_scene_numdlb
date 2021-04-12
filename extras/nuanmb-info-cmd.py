@@ -114,10 +114,10 @@ def getAnimationInfo(animpath):
     NodeCount = 0
     global AnimGroups; AnimGroups = {}
     # Structure of this dict is: {AnimType (numeric): an array of AnimTrack objects}
-    
-    global AnimationBufferOffset; 
+
+    global AnimationBufferOffset;
     AnimationBufferOffset = 0
-    
+
     if os.path.isfile(animpath):
         with open(animpath, 'rb') as am:
             am.seek(0x10, 0)
@@ -268,9 +268,9 @@ def readCompressedData(aq, track):
     ach.bitsPerEntry = struct.unpack('<H', aq.read(2))[0]
     ach.compressedDataOffset = struct.unpack('<L', aq.read(4))[0]
     ach.frameCount = struct.unpack('<L', aq.read(4))[0]
-    print("ACH= { " + str(ach) + " }")
+    print("ACH = { " + str(ach) + " }")
     bp = 0 # Workaround to allow the bitreader function to continue at wherever it left off
-    
+
     if ((track.flags & 0x00ff) == AnimTrackFlags.Transform.value):
         acj = [] # Contains an array of AnimCompressedItem objects
         for i in range(9):
