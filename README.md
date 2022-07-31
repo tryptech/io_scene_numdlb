@@ -1,3 +1,6 @@
+***Change was merged into main repository at https://gitlab.com/Worldblender/io_scene_numdlb.***
+
+
 # Super Smash Bros. Ultimate model and animation importers for Blender (io_scene_numdlb)
 Imports data referenced by NUMDLB files and NUANMB files (binary model and animation formats used by some games developed by Bandai-Namco). May work for other games using the same format. Unlike the original MAXScript, this set of scripts is cross-platform, as they will work on any operating system that Blender and Python exist for. The readability in the rewritten model importer script is also improved, with the main function split into several smaller ones.
 
