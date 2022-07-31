@@ -3,8 +3,8 @@
 bl_info = {
     "name": "Super Smash Bros. Ultimate Animation + Camera Importer",
     "description": "Imports animation data from NUANMB files (binary animation format used by some games developed by Bandai-Namco)",
-    "author": "Carlos, Richard Qian (Worldblender), Ploaj",
-    "version": (1, 0, 0),
+    "author": "Carlos, Richard Qian (Worldblender), Ploaj, tryptech",
+    "version": (1, 0, 1),
     "blender": (2, 80, 0),
     "location": "File > Import",
     "category": "Import-Export"}
@@ -471,7 +471,7 @@ def importCamera(context):
     context.scene.frame_start = 1
     sm = action.pose_markers.new(AnimName + "-start")
     sm.frame = context.scene.frame_start
-    context.scene.frame_end = FrameCount + 1
+    context.scene.frame_end = int(FrameCount) + 1
     em = action.pose_markers.new(AnimName + "-end")
     em.frame = context.scene.frame_end
 
@@ -578,7 +578,7 @@ def importAnimations(context, read_transform, read_material, read_visibility):
     context.scene.frame_start = 1
     sm = action.pose_markers.new(AnimName + "-start")
     sm.frame = context.scene.frame_start
-    context.scene.frame_end = FrameCount + 1
+    context.scene.frame_end = int(FrameCount) + 1
     em = action.pose_markers.new(AnimName + "-end")
     em.frame = context.scene.frame_end
 
